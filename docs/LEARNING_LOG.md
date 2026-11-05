@@ -100,3 +100,49 @@ docker stop preview-demo && docker rm preview-demo
 
 ### 6. Question to check your understanding
 Why is it dangerous to run a container as the `root` user in a shared Kubernetes cluster, even if the container is isolated from other containers?
+
+
+## Step 3: GitHub Actions CI Pipeline (Build and Test)
+
+### 1. What was built
+- Created `.github/workflows/ci-cd.yml` defining the initial continuous integration pipeline with a single `build-test` job.
+- Triggers on every `push` to `main` and every `pull_request` targeting `main`.
+- Enforced strict least-privilege security permissions: `permissions: contents: read`.
+- Configured steps using official pinned major versions of GitHub Actions (`actions/checkout@v7`, `actions/setup-java@v6`, `actions/upload-artifact@v7`).
+- Configured Temurin Java 21 with automatic Maven dependency caching (`cache: 'maven'`).
+- Added execution permissions step for `mvnw` (`chmod +x mvnw`) and executed `./mvnw -B verify`.
+- Configured conditional artifact upload (`if: always()`) so Surefire XML/HTML test reports in `target/surefire-reports/` are preserved and downloadable even if a test fails.
+
+### 2. Why
+- **Shift-Left Quality & Fast Feedback**: Every PR and commit must be automatically tested on a clean Ubuntu runner before it is merged or deployed. If a test fails, the pipeline halts immediately.
+- **Least-Privilege Security**: GitHub Actions runners inherit a default `GITHUB_TOKEN`. Restricting permissions to `contents: read` prevents a compromised action or compromised dependency from writing to the repo or modifying PRs.
+- **Post-Mortem Diagnostics**: By configuring `if: always()` on the artifact upload step, developers can download and inspect test failure logs directly from the GitHub Actions web interface without re-running builds locally.
+- **Build Performance**: `actions/setup-java` with `cache: 'maven'` caches `~/.m2/repository` based on the hash of `pom.xml`, shaving minutes off consecutive CI runs.
+
+### 3. How it works in plain language
+- Whenever code is pushed to `main` or a pull request is submitted, GitHub automatically spins up a clean, isolated Ubuntu virtual machine.
+- It clones the repository, installs the Temurin JDK 21 distribution, and restores any cached Maven libraries.
+- It runs `./mvnw -B verify` in non-interactive batch mode (`-B`), compiling the project and running all MockMvc tests.
+- Regardless of whether the tests pass or fail, it zips the `target/surefire-reports/` directory and attaches it to the workflow summary page as a downloadable artifact.
+
+### 4. Commands used
+```bash
+# Check git status and branch
+git status
+git branch
+
+# Add remote (once username is provided)
+git remote add origin https://github.com/<MY_USERNAME>/preview-env-manager.git
+
+# Push to GitHub
+git push -u origin main
+```
+
+### 5. What could break
+- If `mvnw` lacks executable permissions in the repository or git index, Linux runners will fail with `permission denied`. We added `chmod +x mvnw` in the workflow to guard against this.
+- If someone uses `@main` or unpinned action tags, an upstream release by a third party could introduce breaking changes or security vulnerabilities without warning.
+- If tests produce no surefire reports (e.g., compile error prior to test execution), `actions/upload-artifact` might warn or fail unless handled. In standard Maven builds, Surefire reports are generated on any test run.
+
+### 6. Question to check your understanding
+Why is it critical to set `if: always()` on the test report upload step rather than letting it run with default behavior?
+*(Hint: When do developers most urgently need to inspect test report files?)*
