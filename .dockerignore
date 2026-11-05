@@ -1,0 +1,32 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Build outputs & caches
+target/
+
+# IDE files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+.apt_generated
+.factorypath
+.springBeans
+.sts4-cache
+
+# Project documentation & infrastructure
+docs/
+infra/
+k8s/
+.github/
+
+# Documentation & logs
+*.md
+*.log
+

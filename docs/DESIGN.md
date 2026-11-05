@@ -70,10 +70,13 @@ flowchart TD
   - In Kubernetes, the pod's hostname equals the pod's name, confirming that traffic reaches distinct pods in isolated namespaces.
 
 ### Step 4: Containerization & Registry (ACR)
-- **Choice**: Azure Container Registry (ACR) on the **Basic SKU**.
-- **Rationale**:
-  - The Basic SKU is cost-effective for university and development projects while providing private container hosting within Azure.
-  - Docker images are tagged using the **full Git commit SHA** (`${{ github.sha }}`) rather than mutable tags like `latest`. This ensures absolute reproducibility, immutability, and instant auditability.
+- **Choice**: Multi-stage Docker build with pinned **Eclipse Temurin 21.0.13_9** base images and Azure Container Registry (ACR) on the **Basic SKU**.
+  - **Stage 1 (Builder)**: `eclipse-temurin:21.0.13_9-jdk-jammy`. Uses the Maven wrapper, pre-fetches dependencies with `dependency:resolve` in a dedicated layer for Docker build caching, and compiles the JAR with `-DskipTests`.
+  - **Stage 2 (Runtime)**: `eclipse-temurin:21.0.13_9-jre-jammy`. Stripped-down JRE image containing no compiler or build tools.
+  - **Security (Non-root user)**: A dedicated `appuser:appgroup` (UID/GID 1001) is created and activated (`USER appuser`) to prevent privilege escalation and container breakout attacks in Kubernetes.
+  - **Memory Limits**: `JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0 -XX:+UseG1GC"` ensures the JVM dynamically respects container cgroup memory limits, preventing out-of-memory (OOM) kills.
+  - **Build Arguments**: `ARG GIT_SHA=dev` is injected during build time and stored as an environment variable `ENV GIT_SHA` so the running container knows its commit provenance.
+  - **Image Tagging**: Docker images are tagged using the **full Git commit SHA** (`${{ github.sha }}`) rather than mutable tags like `latest`. This guarantees reproducibility and zero ambiguity.
 
 ### Step 5: Kubernetes Ingress Controller (Traefik)
 - **Choice**: **Traefik** deployed via official Helm chart.
