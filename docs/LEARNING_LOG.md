@@ -132,7 +132,7 @@ git status
 git branch
 
 # Add remote (once username is provided)
-git remote add origin https://github.com/<MY_USERNAME>/preview-env-manager.git
+git remote add origin https://github.com/shirleyclaire/preview-env-manager.git
 
 # Push to GitHub
 git push -u origin main
@@ -146,3 +146,46 @@ git push -u origin main
 ### 6. Question to check your understanding
 Why is it critical to set `if: always()` on the test report upload step rather than letting it run with default behavior?
 *(Hint: When do developers most urgently need to inspect test report files?)*
+
+
+## Step 4: Azure Environment Pre-Flight Inspection Script
+
+### 1. What was built
+- Created `infra/00-precheck.sh`: A strictly read-only bash script that performs pre-flight checks against Azure without creating, changing, or deleting any cloud resources.
+- Verifies that Azure CLI (`az`) is installed and has an active login session (`az account show`).
+- Displays the active subscription ID, name, tenant, and state.
+- Inspects the registration state of 4 essential resource providers:
+  - `Microsoft.ContainerService` (AKS)
+  - `Microsoft.ContainerRegistry` (ACR)
+  - `Microsoft.Network` (VNet/LoadBalancer/Public IP)
+  - `Microsoft.Compute` (VM node pools)
+- Scans Azure Policy assignments for any "Allowed locations" geographic restrictions.
+- For any region passed as an argument (e.g. `eastus`), queries available virtual machine sizes with 2 vCPUs and at least 4 GiB memory, highlighting any capacity/quota restrictions.
+- Documents pricing references for the Azure Pricing Calculator and the Azure Retail Prices API.
+- Fully documented every `az` command in script comments.
+
+### 2. Why
+- **Fail Fast & Cost Safety**: Attempting to deploy an AKS cluster or ACR before checking provider registration or regional quota often leads to opaque failures 15 minutes into a cloud provisioning script.
+- **Student & Sandbox Guardrails**: Many university student subscriptions restrict deployments to specific regions (e.g., East US or West US). Detecting policy restrictions before writing terraform or deployment scripts saves hours of debugging.
+- **Read-Only Guarantee**: Infrastructure engineers use read-only inspection scripts to safely audit environments without risk of incurring costs or breaking running services.
+
+### 3. How it works in plain language
+- The script connects to Azure using your existing CLI login and asks Azure for information: "What subscription is selected? Are the required services turned on? Does my organization restrict where I can build things? What 2-core machines are available in this region?"
+- It prints the answers in clean, color-coded tables so you can choose the optimal region and VM size before provisioning any real infrastructure.
+
+### 4. Commands used
+```bash
+# Make the script executable
+chmod +x infra/00-precheck.sh
+
+# Run the pre-check inspection for a specific region (e.g., eastus)
+./infra/00-precheck.sh eastus
+```
+
+### 5. What could break
+- If the user has not installed the Azure CLI or has not run `az login`, the script halts immediately with installation and login guidance.
+- If a region has zero quota for a specific VM family (such as `Standard_B2s` or `Standard_D2s_v5`), `Restrictions` will indicate `NotAvailableForSubscription`, signaling that another size or region must be chosen.
+
+### 6. Question to check your understanding
+Why must resource providers like `Microsoft.ContainerService` be "Registered" before you can create a Kubernetes cluster in an Azure subscription?
+*(Hint: What does registration tell Azure Resource Manager about your subscription's access to that service's API?)*

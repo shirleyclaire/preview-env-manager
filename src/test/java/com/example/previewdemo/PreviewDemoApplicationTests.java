@@ -34,7 +34,8 @@ class PreviewDemoApplicationTests {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
                 .andExpect(content().string(containsString("Preview Environment Demo")))
-                .andExpect(content().string(containsString("Hello from Layer 0")));
+                // .andExpect(content().string(containsString("Hello from Layer 0")));
+                .andExpect(content().string(containsString("THIS WILL INTENTIONALLY FAIL")));
     }
 
     @Test
